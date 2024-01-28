@@ -97,8 +97,8 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
-	int win_w = 900;
-	int win_h = 900;
+	int win_w = 1000;
+	int win_h = 1000;
 
 	GLFWwindow *window = glfwCreateWindow(win_w, win_h, "Juxtapos", NULL, NULL);
 	if (window == NULL) {
@@ -117,7 +117,7 @@ int main()
 	glfwSetFramebufferSizeCallback(window, &framebuffer_size_callback);
 
 	// dimensions of the image
-	int tex_w = 512, tex_h = 512;
+	int tex_w = 1000, tex_h = 1000;
 	GLuint wood_texture;
 	glGenTextures(1, &wood_texture);
 
@@ -194,6 +194,9 @@ int main()
 
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	while (!glfwWindowShouldClose(window)) {
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(window, GLFW_TRUE);
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// preview wood texture

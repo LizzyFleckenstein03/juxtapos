@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
+#include "../linmath.h/linmath.h"
 
 static void opengl_error(GLenum err, const char *file, int line)
 {
@@ -33,11 +34,21 @@ struct shader {
 	size_t len;
 };
 
+int win_width, win_height;
+
 static void framebuffer_size_callback(GLFWwindow *handle, int width, int height)
 {
 	(void) handle;
 	glViewport(0, 0, width, height);
+	win_width = width;
+	win_height = height;
 }
+
+#define glUniform(loc, x) _Generic((x), \
+	GLfloat: glUniform1f, \
+	GLint: glUniform1i, \
+	GLuint: glUniform1ui \
+	)(loc, x)
 
 GLuint shader_program_create(const char *name, struct shader *shaders, size_t num_shaders)
 {
@@ -83,6 +94,13 @@ GLuint shader_program_create(const char *name, struct shader *shaders, size_t nu
 
 #define GL_DEBUG opengl_debug(__FILE__, __LINE__);
 
+#include "hacks.h"
+
+VERTEX_DEF(vertex,
+	(T_FLOAT, pos, 4),
+	(T_FLOAT, texCoord, 2)
+)
+
 int main()
 {
 	if (!glfwInit()) {
@@ -90,17 +108,23 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
+	//FST(FLOAT) x = 0.0;
+	//MEOW(int) a = 0;
+	//int a = MEW();
+	//int a = CALL(_1, PAIR(1,2));
+	//int b = CALL(_2, FLOAT);
+
 	atexit(glfwTerminate);
 
-	// glfwWindowHint(GLFW_SAMPLES, 8);
+	glfwWindowHint(GLFW_SAMPLES, 8);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
-	int win_w = 1000;
-	int win_h = 1000;
+	win_width = 1025;
+	win_height = 750;
 
-	GLFWwindow *window = glfwCreateWindow(win_w, win_h, "Juxtapos", NULL, NULL);
+	GLFWwindow *window = glfwCreateWindow(win_width, win_height, "Juxtapos", NULL, NULL);
 	if (window == NULL) {
 		fprintf(stderr, "[error] failed to create window\n");
 		exit(EXIT_FAILURE);
@@ -113,11 +137,11 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	glViewport(0, 0, win_w, win_h);
+	glViewport(0, 0, win_width, win_height);
 	glfwSetFramebufferSizeCallback(window, &framebuffer_size_callback);
 
 	// dimensions of the image
-	int tex_w = 1000, tex_h = 1000;
+	int tex_w = 480, tex_h = 480;
 	GLuint wood_texture;
 	glGenTextures(1, &wood_texture);
 
@@ -167,44 +191,135 @@ int main()
 		{ "fragment", GL_FRAGMENT_SHADER, fragment_shader_src, sizeof fragment_shader_src },
 	}, 2);
 
-	GLfloat quad[4][2] = {
-		{ -0.5, +0.5 },
-		{ -0.5, -0.5 },
-		{ +0.5, +0.5 },
-		{ +0.5, -0.5 },
-	};
+	GLint loc_model = glGetUniformLocation(main_shader, "model");
+	GLint loc_viewProj = glGetUniformLocation(main_shader, "viewProj");
 
-	GLuint vao, vbo;
+	/*struct vertex cube[3][2][2][2];
+	for (int i = 0; i < 3; i++)
+		// for those, i noticed i can replace them with a single loop and use bit manipulation
+		for (int a = 0; a <= 1; a++)
+		for (int b = 0; b <= 1; b++)
+		for (int c = 0; c <= 1; c++) {
+			struct vertex *v = &cube[i][a][b][c];
+			// this simply turned into a loop over k
+			v->pos[(i+0)%3] = a * 2.0 - 1.0;
+			v->pos[(i+1)%3] = b * 2.0 - 1.0;
+			v->pos[(i+2)%3] = c * 2.0 - 1.0;
+		}*/
+
+/*#define DIM 3
+	struct vertex vertices[DIM][1 << DIM] = { 0 };
+	for (int i = 0; i < DIM; i++)
+	for (int j = 0; j < 1 << DIM; j++)
+	for (int k = 0; k < DIM; k++)
+		vertices[i][j].pos[(i+k)%DIM] = ((j >> k) & 1) * 2.0 - 1.0;
+*/
+
+	/*GLuint indices[DIM][1 << DIM][2];
+	for (int i = 0; i < DIM; i++)
+	for (int j = 0; j < 1 << DIM; j++)
+		indices[i][j][1] = (indices[i][j][0] = j) ^ (1 << i);*/
+
+#define DIM 0
+	struct vertex vertices[1 << DIM] = { 0 };
+	for (int j = 0; j < 1 << DIM; j++)
+	for (int k = 0; k < DIM; k++)
+		vertices[j].pos[k] = ((j >> k) & 1) * 2.0 - 1.0;
+
+#define BITS_FROM(x, i) ((x) & ((~0U) << (i))) // select all bits above and including bit
+#define BITS_TO(x, i) ((x) & ~((~0U) << (i)))  // select all bits below bit i
+
+	GLuint indices[DIM][1 << (DIM-1)][2];
+	for (unsigned int i = 0; i < DIM; i++)
+	for (unsigned int j = 0; j < 1 << (DIM-1); j++)
+		indices[i][j][1] = (indices[i][j][0] = (
+			BITS_FROM(j, i) << 1 | BITS_TO(j, i)
+		)) | (1 << i);
+
+	//for ()
+
+	/*GLuint indices[ CUBE_LEN/4 ][8];
+	for (int i = 0; i < CUBE_LEN/4; i++) {
+		for (int j = 0; j < 8; j++)
+			indices[i][j] = i*4 + (((j+1) % 8) / 2);
+	}*/
+
+	/*
+	GLuint indices[6][6];
+	for (int i = 0; i < 6; i++) {
+		GLuint quad[6] = { 0, 1, 2, 2, 3, 1 };
+		for (int j = 0; j < 6; j++)
+			indices[i][j] = i*4 + quad[j];
+	}*/
+
+	/*
+	struct vertex_quad quad[4] = {
+		{{ -0.5, +0.5, +0.0 }},
+		{{ -0.5, -0.5, +0.0 }},
+		{{ +0.5, +0.5, +0.0 }},
+		{{ +0.5, -0.5, +0.0 }},
+	};*/
+
+	GLuint vao, vbo, ebo;
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
+	glGenBuffers(1, &ebo);
 
 	glBindVertexArray(vao);
+
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof vertices, vertices, GL_STATIC_DRAW);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof quad, quad, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof indices, indices, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof *quad, 0);
-	glEnableVertexAttribArray(0);
+	vertex_configure_vao();
 
 	unsigned int skyblue = 0x87ceeb;
 	glClearColor(
 		((skyblue >> 16) & 0xff) / 255.0,
 		((skyblue >>  8) & 0xff) / 255.0,
 		((skyblue >>  0) & 0xff) / 255.0, 1.0);
+	glPointSize(5.0);
 
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+	glfwSetTime(0.0);
 	while (!glfwWindowShouldClose(window)) {
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, GLFW_TRUE);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
 
 		// preview wood texture
 		glUseProgram(main_shader);
+
+		mat4x4 proj;
+		mat4x4_perspective(proj, 90.0, (float) win_width / (float) win_height, 0.1, 100.0);
+
+		vec3 up;
+		vec3_norm(up, (vec3) { 0.0, 1.0, -1.0 });
+
+		mat4x4 view;
+		mat4x4_look_at(view, (vec3) { 0.0, 2.0, 2.0 }, (vec3) { 0, 0, 0 }, up);
+
+		mat4x4 view_proj;
+		mat4x4_mul(view_proj, proj, view);
+
+		mat4x4 id;
+		mat4x4_identity(id);
+		mat4x4 model;
+		mat4x4_rotate_Y(model, id, glfwGetTime() * M_PI * 0.1);
+
+		glUniformMatrix4fv(loc_model, 1, GL_FALSE, &model[0][0]);
+		glUniformMatrix4fv(loc_viewProj, 1, GL_FALSE, &view_proj[0][0]);
+
 		glBindVertexArray(vao);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, wood_texture);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		//glDrawArrays(GL_POINTS, 0, sizeof vertices / sizeof(struct vertex));
+		glDrawElements(GL_LINES, sizeof indices / sizeof(GLuint), GL_UNSIGNED_INT, 0);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

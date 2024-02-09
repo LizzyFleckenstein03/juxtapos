@@ -226,9 +226,6 @@ GLuint shader_program_create(const char *name, struct shader *shaders, size_t nu
 	}, 2);
 
 #define UNIFORM_LOC(shader, name) GLint loc_ ## name = glGetUniformLocation(shader, #name);
-
-#define EMBED(...) ((const char []) { __VA_ARGS__ })
-
 #define BITS_FROM(x, i) ((x) & ((~0U) << (i))) // select all bits above and including bit i
 #define BITS_TO(x, i) ((x) & ~((~0U) << (i)))  // select all bits below bit i
 
@@ -377,7 +374,8 @@ int main()
 
 	atexit(glfwTerminate);
 
-#define SAMPLES 2
+#define SAMPLES 1
+#define UPSCALE 1
 
 #if SAMPLES > 1
 	glfwWindowHint(GLFW_SAMPLES, SAMPLES);
@@ -407,6 +405,7 @@ int main()
 
 	glViewport(0, 0, win_width, win_height);
 	glfwSetFramebufferSizeCallback(window, &framebuffer_size_callback);
+	glfwSwapInterval(0);
 
 	const char wood_src[] = {
 #include "wood.glsl.h"
@@ -560,7 +559,7 @@ int main()
 #if SAMPLES > 1
 			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SAMPLES, GL_RGBA, win_width, win_height, GL_TRUE);
 #else
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win_width, win_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win_width*UPSCALE, win_height*UPSCALE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 #endif
@@ -569,7 +568,7 @@ int main()
 #if SAMPLES > 1
 				glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, SAMPLES, GL_DEPTH_COMPONENT, win_width, win_height, GL_TRUE);
 #else
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, win_width, win_height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, win_width*UPSCALE, win_height*UPSCALE, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
@@ -590,7 +589,7 @@ int main()
 		// preview wood texture
 
 		mat4x4 proj;
-		mat4x4_perspective(proj, 90.0, (float) win_width / (float) win_height, 1.0, 4.2);
+		mat4x4_perspective(proj, 90.0, (float) win_width / (float) win_height, 0.1, 10);
 
 		vec3 up;
 		vec3_norm(up, (vec3) { 0.0, 1.0, -1.0 });
@@ -624,7 +623,7 @@ int main()
 		mat4x4_mul(model, model, tmp);
 
 		//mat4x4_rotate_yw(tmp, angle);
-		//mat4x4_rotate_Y(model, model, angle);
+		mat4x4_rotate_Y(model, model, angle);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -634,6 +633,7 @@ int main()
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		for (int i = 0; i < 8; i++) {
+			glViewport(0, 0, win_width*UPSCALE, win_height*UPSCALE);
 			glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[i % 2]);
 			glEnable(GL_DEPTH_TEST);
 			glDepthFunc(GL_GREATER);
@@ -659,6 +659,7 @@ int main()
 
 			// blend result
 
+			glViewport(0, 0, win_width, win_height);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glDisable(GL_DEPTH_TEST);
 			glEnable(GL_BLEND);
